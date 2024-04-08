@@ -32,6 +32,11 @@ matA = np.zeros(
     (numRest, numVar + numRest + 2)
 )  # Se añade 2 para la columna Z y el valor RHS
 
+ #En caso de que la restricción sea de igualdad
+restExt = np.array([])
+varExt = np.array([])
+numRestExt = numRest
+
 for i in range(numRest):
     matR = np.zeros(numVar + numRest + 2)  # Se corrige el tamaño de matR
     if i == 0:
@@ -64,16 +69,20 @@ for i in range(numRest):
         matA[i, 1:numVar + 1] = -matA[i, 1:numVar + 1]
         # print("Volteando los coeficientes")
     
+    if tipo == 2 and tipoRest == 1:
+        matA[i, 1:numVar + 1] = -matA[i, 1:numVar + 1]
+        matA[i, -1] = -matA[i, -1]
+
+        # print("Volteando los coeficientes")
+    
     # if tipoRest == 3:
-    #     numRest += 1
-    #     nuevaHolgura = "h" + str(numRest)
-    #     var.insert(-1, nuevaHolgura)
-    #     nueva_fila = matA[i].copy()
-    #     # Aplica la operación a los elementos especificados
-    #     nueva_fila[1:numVar + 1] = -nueva_fila[1:numVar + 1]
-    #     matA = np.vstack([matA, nueva_fila])
+    #     nuevaHolgura = "h" + str(numRestExt + 1)
+    #     varExt = np.append(varExt, nuevaHolgura)
+    #     numRestExt += 1
         
-    print("matA: ", matA)
+      
+# print("Variables extra", varExt)        
+    # print("matA: \n", matA)
 
 # Agregar holguras a la función objetivo
 for i in range(numRest + 1):
@@ -116,6 +125,7 @@ def simplex(matA, matZ):
 
     # Se obtiene el renglón pivote. Busca el menor coeficiente de const/coeficiente de la columna pivote
     minVal = np.inf
+    filPiv = 0
     for i in range(numFilas):
         if matA[i, colPiv] > 0:
             val = matA[i, -1] / matA[i, colPiv]
@@ -198,13 +208,13 @@ def obtenerDual(matA, matZ):
     # Los valores de cada columna en matA serán los coeficientes de cada restricción
     for i in range(len(dual)):
         matA[i, -1] = 0
-    print(matA)
+    # print(matA)
 
     intermediate_cols = matA[:, 1:-1].T
     nuevMatA = np.empty((0, numRest))
     for i in range(numVar):
         nuevMatA = np.vstack((nuevMatA, intermediate_cols[i]))
-        print("intermediate_cols[i]: ", intermediate_cols[i])
+        # print("intermediate_cols[i]: ", intermediate_cols[i])
 
     for i in range(numVar):
         holgura = np.zeros(
@@ -246,31 +256,36 @@ if tipo == 1:
         0  # Asegurándose de que todas las entradas bajo "Z" en restricciones sean 0
     )
     print(df)
+    with pd.ExcelWriter('salida_final.xlsx', engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Inicial')
 
-    # Se ejecuta el método simplex
-    iteracion = 1
-    while not fin:
-        matA, matZ, fin = simplex(matA, matZ)
-        print("Iteración ", iteracion)
-        # Se crea un DataFrame con las matrices
-        matZ[0] = 1.0  # Ajusta el valor de Z a 1
-        df = pd.DataFrame([matZ] + matA.tolist(), columns=var)
-        df.iloc[1:, 0] = (
-            0  # Asegurándose de que todas las entradas bajo "Z" en restricciones sean 0
-        )
-        print(df)
-        iteracion += 1
-    if fin:
-        print("Solución óptima encontrada")
-        matZ[0] = 1.0  # Ajusta el valor de Z a 1
-        df = pd.DataFrame([matZ] + matA.tolist(), columns=var)
-        df.iloc[1:, 0] = (
-            0  # Asegurándose de que todas las entradas bajo "Z" en restricciones sean 0
-        )
-        print(df)
-        df.to_csv('salida_final.txt', index=False, sep='\t')
-        valores_finales = obtener_valores_finales(matA, matZ, var)
-        print("Valores finales: ", valores_finales)
+        # Se ejecuta el método simplex
+        iteracion = 1
+        while not fin:
+            matA, matZ, fin = simplex(matA, matZ)
+            print("Iteración ", iteracion)
+            # Se crea un DataFrame con las matrices
+            matZ[0] = 1.0  # Ajusta el valor de Z a 1
+            df = pd.DataFrame([matZ] + matA.tolist(), columns=var)
+            df.iloc[1:, 0] = (
+                0  # Asegurándose de que todas las entradas bajo "Z" en restricciones sean 0
+            )
+            print(df)
+            df.to_excel(writer, index=False, sheet_name=f'Iteración {iteracion}')
+            iteracion += 1
+        if fin:
+            print("Solución óptima encontrada")
+            matZ[0] = 1.0  # Ajusta el valor de Z a 1
+            df = pd.DataFrame([matZ] + matA.tolist(), columns=var)
+            df.iloc[1:, 0] = (
+                0  # Asegurándose de que todas las entradas bajo "Z" en restricciones sean 0
+            )
+            print(df)
+            
+            valores_finales = obtener_valores_finales(matA, matZ, var)
+            print("Valores finales: ", valores_finales)
+            df.to_excel(writer, index=False, sheet_name='Solución')
+
 
 if tipo == 2:
     # Se obtiene la solución dual
@@ -282,28 +297,30 @@ if tipo == 2:
         0  # Asegurándose de que todas las entradas bajo "Z" en restricciones sean 0
     )
     print(df)
+    with pd.ExcelWriter('salida_final.xlsx', engine='openpyxl') as writer:
+        df.to_excel(writer, index=False, sheet_name='Inicial')
 
-    # Se ejecuta el método simplex
-    iteracion = 1
-    while not fin:
-        newMatA, newMatZ, fin = simplex(newMatA, newMatZ)
-        print("Iteración ", iteracion)
-        # Se crea un DataFrame con las matrices
-        matZ[0] = 1.0  # Ajusta el valor de Z a 1
-        df = pd.DataFrame([newMatZ] + newMatA.tolist(), columns=newVar)
-        df.iloc[1:, 0] = (
-            0  # Asegurándose de que todas las entradas bajo "Z" en restricciones sean 0
-        )
-        print(df)
-        iteracion += 1
-    if fin:
-        print("\nSolución óptima encontrada")
-        newMatZ[0] = 1.0  # Ajusta el valor de Z a 1
-        df = pd.DataFrame([newMatZ] + newMatA.tolist(), columns=newVar)
-        df.iloc[1:, 0] = (
-            0  # Asegurándose de que todas las entradas bajo "Z" en restricciones sean 0
-        )
-        print(df)
-        df.to_csv('salida_final.txt', index=False, sep='\t')
-        print("\nValores finales: ", obtener_valores_finales(newMatA, newMatZ, newVar))
+        # Se ejecuta el método simplex
+        iteracion = 1
+        while not fin:
+            newMatA, newMatZ, fin = simplex(newMatA, newMatZ)
+            print("Iteración ", iteracion)
+            # Se crea un DataFrame con las matrices
+            matZ[0] = 1.0  # Ajusta el valor de Z a 1
+            df = pd.DataFrame([newMatZ] + newMatA.tolist(), columns=newVar)
+            df.iloc[1:, 0] = (
+                0  # Asegurándose de que todas las entradas bajo "Z" en restricciones sean 0
+            )
+            print(df)
+            df.to_excel(writer, index=False, sheet_name=f'Iteración {iteracion}')
+            iteracion += 1
+        if fin:
+            print("\nSolución óptima encontrada")
+            newMatZ[0] = 1.0  # Ajusta el valor de Z a 1
+            df = pd.DataFrame([newMatZ] + newMatA.tolist(), columns=newVar)
+            df.iloc[1:, 0] = (
+                0  # Asegurándose de que todas las entradas bajo "Z" en restricciones sean 0
+            )
+            print(df)
+            df.to_excel(writer, index=False, sheet_name='Solución')
 
