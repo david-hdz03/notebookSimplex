@@ -62,12 +62,16 @@ for i in range(numRest):
     
     if tipo == 1 and tipoRest == 2:
         matA[i, 1:numVar + 1] = -matA[i, 1:numVar + 1]
+        # print("Volteando los coeficientes")
     
-    if tipoRest == 3:
-        nueva_fila = matA[i].copy()
-        # Aplica la operación a los elementos especificados
-        nueva_fila[1:numVar + 1] = -nueva_fila[1:numVar + 1]
-        matA = np.vstack([matA, nueva_fila])
+    # if tipoRest == 3:
+    #     numRest += 1
+    #     nuevaHolgura = "h" + str(numRest)
+    #     var.insert(-1, nuevaHolgura)
+    #     nueva_fila = matA[i].copy()
+    #     # Aplica la operación a los elementos especificados
+    #     nueva_fila[1:numVar + 1] = -nueva_fila[1:numVar + 1]
+    #     matA = np.vstack([matA, nueva_fila])
         
     print("matA: ", matA)
 
@@ -140,9 +144,33 @@ def simplex(matA, matZ):
     if valNeg < 0:
         fin = False
     else:
-        fin = True
+        fin = True                    
 
     return matA, matZ, fin
+
+def obtener_valores_finales(matA, matZ, var_names):
+    # Inicializar los valores finales de todas las variables en 0
+    valores_finales = dict.fromkeys(var_names, 0.0)
+    
+    # El valor final de Z es el último elemento de matZ
+    valores_finales['Z'] = matZ[-1]
+    
+    numFilas, numCols = matA.shape
+    
+    # Recorrer cada columna para identificar las variables básicas y sus valores
+    for i, var in enumerate(var_names[:-1]):  # Excluir la columna de constantes de var_names
+        col = matA[:, i]  # Extraer la columna actual
+        
+        # Si en la columna hay exactamente un 1 y el resto son 0s, se considera una variable básica
+        if np.count_nonzero(col == 1) == 1 and np.count_nonzero(col == 0) == numFilas - 1:
+            fila = np.where(col == 1)[0][0]  # Encontrar la fila del 1
+            valores_finales[var] = matA[fila, -1]  # Asignar el valor de la constante de esa fila
+    
+    # Eliminar la tupla "Const"
+    if 'Const' in valores_finales:  
+        del valores_finales['Const']
+    
+    return valores_finales
 
 
 def obtenerDual(matA, matZ):
@@ -192,7 +220,7 @@ def obtenerDual(matA, matZ):
 
     nuevasRest = matZ[1 : 1 + numVar]
     nuevasRest = -nuevasRest
-    print("nuevasRest: ", nuevasRest)
+    # print("nuevasRest: ", nuevasRest)
 
     nuevMatA = np.column_stack((nuevMatA, nuevasRest))
 
@@ -203,9 +231,9 @@ def obtenerDual(matA, matZ):
     nuevMatZ = -nuevMatZ
     nuevMatZ[0] = -nuevMatZ[0]
     nuevMatZ[-1] = -nuevMatZ[-1]
-    print("Las variables son: ", nuevVar)
-    print("La matriz Z es: ", nuevMatZ)
-    print("La matriz A es: \n", nuevMatA)
+    # print("Las variables son: ", nuevVar)
+    # print("La matriz Z es: ", nuevMatZ)
+    # print("La matriz A es: \n", nuevMatA)
 
     return nuevMatA, nuevMatZ, nuevVar
 
@@ -240,6 +268,9 @@ if tipo == 1:
             0  # Asegurándose de que todas las entradas bajo "Z" en restricciones sean 0
         )
         print(df)
+        df.to_csv('salida_final.txt', index=False, sep='\t')
+        valores_finales = obtener_valores_finales(matA, matZ, var)
+        print("Valores finales: ", valores_finales)
 
 if tipo == 2:
     # Se obtiene la solución dual
@@ -266,10 +297,13 @@ if tipo == 2:
         print(df)
         iteracion += 1
     if fin:
-        print("Solución óptima encontrada")
+        print("\nSolución óptima encontrada")
         newMatZ[0] = 1.0  # Ajusta el valor de Z a 1
         df = pd.DataFrame([newMatZ] + newMatA.tolist(), columns=newVar)
         df.iloc[1:, 0] = (
             0  # Asegurándose de que todas las entradas bajo "Z" en restricciones sean 0
         )
         print(df)
+        df.to_csv('salida_final.txt', index=False, sep='\t')
+        print("\nValores finales: ", obtener_valores_finales(newMatA, newMatZ, newVar))
+
